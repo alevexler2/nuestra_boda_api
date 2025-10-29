@@ -13,13 +13,24 @@ export class CloudinaryService {
 
   async getAllFromMiBoda() {
     try {
-      const res = await cloudinary.api.resources({
-        type: 'upload',
-        prefix: 'mi_boda/',
-        max_results: 1000,
-      });
+      const [imagesRes, videosRes] = await Promise.all([
+        cloudinary.api.resources({
+          type: 'upload',
+          prefix: 'mi_boda/',
+          max_results: 1000,
+          resource_type: 'image',
+        }),
+        cloudinary.api.resources({
+          type: 'upload',
+          prefix: 'mi_boda/',
+          max_results: 1000,
+          resource_type: 'video',
+        }),
+      ]);
 
-      const sortedResources = res.resources.sort(
+      const allResources = [...imagesRes.resources, ...videosRes.resources];
+
+      const sortedResources = allResources.sort(
         (a, b) =>
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
       );
@@ -35,6 +46,7 @@ export class CloudinaryService {
           url: r.secure_url,
           format: r.format,
           type: r.resource_type,
+          mediaType: r.resource_type === 'video' ? 'video' : 'image',
           uploaded_by: uploadedByCapitalized,
         };
       });
