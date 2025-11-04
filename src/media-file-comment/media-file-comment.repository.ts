@@ -20,7 +20,7 @@ export class MediaFileCommentRepository {
   async findAllByMediaFile(mediaFileId: string): Promise<MediaFileComment[]> {
     return this.commentModel.findAll({
       where: { MediaFileID: mediaFileId },
-      order: [['CreatedAt', 'ASC']],
+      order: [['createdAt', 'ASC']],
     });
   }
 

@@ -1,7 +1,8 @@
-import { Controller, Post, Body, Get, Param } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query } from '@nestjs/common';
 import { MediaFileCommentService } from './media-file-comment.service';
 import { CreateMediaFileCommentDto } from './dto/create-media-file-comment.dto';
 import { MediaFileCommentResponseDto } from './dto/response-media-file-comment.dto';
+import { GetMediaFileCommentsDto } from './dto/get-media-file-comment.dto';
 
 @Controller('media-file-comment')
 export class MediaFileCommentController {
@@ -14,10 +15,10 @@ export class MediaFileCommentController {
     return this.commentService.create(createDto);
   }
 
-  @Get('media-file/:mediaFileId')
+  @Get('media-file')
   async findAllByMediaFile(
-    @Param('mediaFileId') mediaFileId: string,
+     @Query() query: GetMediaFileCommentsDto,
   ): Promise<MediaFileCommentResponseDto[]> {
-    return this.commentService.findAllByMediaFile(mediaFileId);
+    return this.commentService.findAllByMediaFile(query.MediaFileID);
   }
 }

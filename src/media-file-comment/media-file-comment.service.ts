@@ -8,12 +8,16 @@ import { MediaFileCommentResponseDto } from './dto/response-media-file-comment.d
 export class MediaFileCommentService {
   constructor(private readonly commentRepo: MediaFileCommentRepository) {}
 
-  async create(createDto: CreateMediaFileCommentDto): Promise<MediaFileCommentResponseDto> {
+  async create(
+    createDto: CreateMediaFileCommentDto,
+  ): Promise<MediaFileCommentResponseDto> {
     const comment = await this.commentRepo.create(createDto);
     return this.toResponseDto(comment);
   }
 
-  async findAllByMediaFile(mediaFileId: string): Promise<MediaFileCommentResponseDto[]> {
+  async findAllByMediaFile(
+    mediaFileId: string,
+  ): Promise<MediaFileCommentResponseDto[]> {
     const comments = await this.commentRepo.findAllByMediaFile(mediaFileId);
     return comments.map(this.toResponseDto);
   }
@@ -23,12 +27,12 @@ export class MediaFileCommentService {
     return comment ? this.toResponseDto(comment) : null;
   }
 
-  private toResponseDto(comment: MediaFileComment): MediaFileCommentResponseDto {
+  toResponseDto(comment: MediaFileComment): MediaFileCommentResponseDto {
     return {
-      ID: comment.ID,
-      MediaFileID: comment.MediaFileID,
-      UserEmail: comment.UserEmail,
-      CommentText: comment.CommentText,
+      ID: comment.dataValues.ID || "",
+      MediaFileID: comment.dataValues.MediaFileID,
+      UserEmail: comment.dataValues.UserEmail,
+      CommentText: comment.dataValues.CommentText,
       CreatedAt: comment.createdAt,
       UpdatedAt: comment.updatedAt,
     };
