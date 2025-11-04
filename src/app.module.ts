@@ -1,8 +1,38 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleInit, Inject } from '@nestjs/common';
+import { SequelizeModule } from '@nestjs/sequelize';
+import { sequelizeConfig } from './config/sequelize.config';
+import { Sequelize } from 'sequelize-typescript';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
-import { DatabaseModule } from './database/database.module';
+import { MediaTypeModule } from './media-type/media-type.module';
+import { seedMediaTypes } from './seeds/media-type.seed';
+import { MediaFileModule } from './media-file/media-file.module';
+import { EventSettingsModule } from './event-settings/event-settings.module';
+import { MediaFileCommentModule } from './media-file-comment/media-file-comment.module';
+import { MediaFileLikeModule } from './media-file-like/media-file-like.module';
 
 @Module({
-  imports: [CloudinaryModule, DatabaseModule],
+  imports: [
+    SequelizeModule.forRoot(sequelizeConfig),
+    CloudinaryModule,
+    MediaTypeModule,
+    MediaFileModule,
+    EventSettingsModule,
+    MediaFileCommentModule,
+    MediaFileLikeModule,
+  ],
 })
-export class AppModule {}
+export class AppModule implements OnModuleInit {
+  async onModuleInit() {
+    await this.seedDatabase();
+  }
+  
+  private async seedDatabase() {
+    try {
+      await seedMediaTypes();
+      console.log('✅ Seeding completed successfully');
+    } catch (error) {
+      console.error('❌ Error during database seeding:', error);
+      process.exit(1);
+    }
+  }
+}

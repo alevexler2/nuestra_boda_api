@@ -1,0 +1,45 @@
+// Database Schema - Version 1.0.0
+// Last updated: 2025-11-03
+
+Table MediaType {
+  ID int [pk]
+  Name varchar(250)
+}
+
+
+Table MediaFile {
+  ID UUID [pk]
+  URL varchar(250)
+  MediaTypeID int
+  UploadedBy varchar(250) // email from Firebase
+  EventID UUID
+}
+
+Ref MediaFileType: MediaFile.MediaTypeID > MediaType.ID // many-to-one
+Ref MediaFileEvent: MediaFile.EventID > EventSettings.ID // many-to-one
+
+Table MediaFileComment {
+  ID UUID [pk]
+  MediaFileID UUID
+  UserEmail varchar(250) // email from Firebase
+  CommentText varchar(500)
+}
+
+Ref CommentMedia: MediaFileComment.MediaFileID > MediaFile.ID // many-to-one
+
+Table MediaFileLike {
+  ID UUID [pk]
+  MediaFileID UUID
+  UserEmail varchar(250) // email from Firebase
+}
+
+Ref LikeMedia: MediaFileLike.MediaFileID > MediaFile.ID // many-to-one
+
+Table EventSettings {
+  ID UUID [pk]
+  EventName varchar(250)
+  Subtitle varchar(250) [null]
+  EventDate date
+  OwnerEmail1 varchar(250)
+  OwnerEmail2 varchar(250) [null]
+}
