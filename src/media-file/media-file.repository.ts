@@ -18,7 +18,10 @@ export class MediaFileRepository {
   }
 
   async findAllByEvent(eventId: string): Promise<MediaFile[]> {
-    return this.mediaFileModel.findAll({ where: { EventID: eventId } });
+    return this.mediaFileModel.findAll({
+      where: { EventID: eventId },
+      order: [['createdAt', 'DESC']],
+    });
   }
 
   async findOne(id: string): Promise<MediaFile | null> {
