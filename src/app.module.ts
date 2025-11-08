@@ -1,8 +1,6 @@
-import { Module, OnModuleInit, Inject } from '@nestjs/common';
+import { Module, OnModuleInit } from '@nestjs/common';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { sequelizeConfig } from './config/sequelize.config';
-import { Sequelize } from 'sequelize-typescript';
-import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { MediaTypeModule } from './media-type/media-type.module';
 import { seedMediaTypes } from './seeds/media-type.seed';
 import { MediaFileModule } from './media-file/media-file.module';
@@ -13,7 +11,6 @@ import { MediaFileLikeModule } from './media-file-like/media-file-like.module';
 @Module({
   imports: [
     SequelizeModule.forRoot(sequelizeConfig),
-    CloudinaryModule,
     MediaTypeModule,
     MediaFileModule,
     EventSettingsModule,
