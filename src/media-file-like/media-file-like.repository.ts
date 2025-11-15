@@ -15,7 +15,7 @@ export class MediaFileLikeRepository {
   }
 
   async findAllByMediaFile(mediaFileID: string): Promise<MediaFileLike[]> {
-    return this.likeModel.findAll({ where: { MediaFileID: mediaFileID } });
+    return this.likeModel.findAll({ where: { MediaFileID: mediaFileID }, order: [['createdAt', 'DESC']], });
   }
 
   async findOne(id: string): Promise<MediaFileLike | null> {

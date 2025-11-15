@@ -3,6 +3,7 @@ export class MediaFileResponseDto {
   URL: string;
   MediaTypeID: number;
   UploadedBy: string;
+  UploadedByName: string;
   EventID?: string;
   CreatedAt: Date;
   UpdatedAt: Date;

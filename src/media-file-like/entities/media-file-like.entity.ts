@@ -40,10 +40,17 @@ export class MediaFileLike extends Model<
     allowNull: false,
   })
   UserEmail: string;
+
+  @Column({
+    type: DataType.STRING(250),
+    allowNull: false,
+  })
+  UserName: string;
 }
 
 export interface MediaFileLikeAttributes {
   ID?: string;
   MediaFileID: string;
   UserEmail: string;
+  UserName: string;
 }

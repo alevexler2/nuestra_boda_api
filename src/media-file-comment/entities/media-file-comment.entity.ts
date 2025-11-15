@@ -42,6 +42,12 @@ export class MediaFileComment extends Model<
   UserEmail: string;
 
   @Column({
+    type: DataType.STRING(250),
+    allowNull: false,
+  })
+  UserName: string;
+
+  @Column({
     type: DataType.STRING(500),
     allowNull: false,
   })
@@ -52,5 +58,6 @@ export interface MediaFileCommentAttributes {
   ID?: string;
   MediaFileID: string;
   UserEmail: string;
+  UserName: string;
   CommentText: string;
 }

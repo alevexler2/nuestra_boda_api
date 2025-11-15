@@ -17,7 +17,7 @@ export class MediaFileCommentController {
 
   @Get('media-file')
   async findAllByMediaFile(
-     @Query() query: GetMediaFileCommentsDto,
+    @Query() query: GetMediaFileCommentsDto,
   ): Promise<MediaFileCommentResponseDto[]> {
     return this.commentService.findAllByMediaFile(query.MediaFileID);
   }

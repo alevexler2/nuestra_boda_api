@@ -11,7 +11,8 @@ Table MediaFile {
   ID UUID [pk]
   URL varchar(250)
   MediaTypeID int
-  UploadedBy varchar(250) // email from Firebase
+  UploadedBy varchar(250)
+  UploadedByName varchar(250) 
   EventID UUID
 }
 
@@ -21,7 +22,8 @@ Ref MediaFileEvent: MediaFile.EventID > EventSettings.ID // many-to-one
 Table MediaFileComment {
   ID UUID [pk]
   MediaFileID UUID
-  UserEmail varchar(250) // email from Firebase
+  UserEmail varchar(250) 
+  UserName varchar(250) 
   CommentText varchar(500)
 }
 
@@ -30,7 +32,8 @@ Ref CommentMedia: MediaFileComment.MediaFileID > MediaFile.ID // many-to-one
 Table MediaFileLike {
   ID UUID [pk]
   MediaFileID UUID
-  UserEmail varchar(250) // email from Firebase
+  UserEmail varchar(250)
+  UserName varchar(250)
 }
 
 Ref LikeMedia: MediaFileLike.MediaFileID > MediaFile.ID // many-to-one

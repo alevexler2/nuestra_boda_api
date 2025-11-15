@@ -32,6 +32,7 @@ export class MediaFileCommentService {
       ID: comment.dataValues.ID || "",
       MediaFileID: comment.dataValues.MediaFileID,
       UserEmail: comment.dataValues.UserEmail,
+      UserName: comment.dataValues.UserName,
       CommentText: comment.dataValues.CommentText,
       CreatedAt: comment.createdAt,
       UpdatedAt: comment.updatedAt,

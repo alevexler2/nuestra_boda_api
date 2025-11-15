@@ -8,4 +8,7 @@ export class CreateMediaFileLikeDto {
   @IsEmail()
   @IsNotEmpty()
   UserEmail: string;
+
+  @IsNotEmpty()
+  UserName: string;
 }

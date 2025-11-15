@@ -52,6 +52,12 @@ export class MediaFile extends Model<
   })
   UploadedBy: string;
 
+  @Column({
+    type: DataType.STRING(250),
+    allowNull: false,
+  })
+  UploadedByName: string;
+
   @ForeignKey(() => EventSettings)
   @Column({ type: DataType.UUID, allowNull: true })
   EventID: string;

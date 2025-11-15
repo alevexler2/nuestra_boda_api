@@ -7,6 +7,9 @@ export class CreateMediaFileDto {
   @IsString()
   UploadedBy?: string;
 
+  @IsString()
+  UploadedByName: string;
+
   @IsUUID()
   EventID?: string;
 }

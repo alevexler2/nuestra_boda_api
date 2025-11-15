@@ -15,6 +15,9 @@ export class CreateMediaFileCommentDto {
   @IsNotEmpty()
   UserEmail: string;
 
+  @IsNotEmpty()
+  UserName: string;
+
   @IsString()
   @MaxLength(500)
   @IsNotEmpty()

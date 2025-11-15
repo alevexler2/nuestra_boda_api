@@ -58,6 +58,7 @@ export class MediaFileController {
     const createDto = {
       MediaTypeID: parseInt(body.MediaTypeID),
       UploadedBy: body.UploadedBy,
+      UploadedByName: body.UploadedByName,
       EventID: eventId,
       URL: relativeUrl,
     };

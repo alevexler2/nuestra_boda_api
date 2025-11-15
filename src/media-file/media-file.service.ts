@@ -64,6 +64,7 @@ export class MediaFileService {
       URL: media.URL,
       MediaTypeID: media.MediaTypeID,
       UploadedBy: media.UploadedBy,
+      UploadedByName: media.UploadedByName,
       EventID: media.EventID,
       CreatedAt: media.createdAt,
       UpdatedAt: media.updatedAt,
