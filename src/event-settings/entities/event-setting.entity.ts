@@ -23,10 +23,21 @@ export class EventSettings extends Model<
   EventName: string;
 
   @Column({ allowNull: true, type: DataType.STRING(250) })
+  title?: string;
+
+  @Column({ allowNull: true, type: DataType.STRING(250) })
   Subtitle?: string;
 
   @Column({ allowNull: false, type: DataType.DATE })
   EventDate: Date;
+
+  @Column({ allowNull: true, type: DataType.JSON })
+  Theme?: {
+    background: string;
+    backgroundSecondary: string;
+    font: string;
+    fontSecondary: string;
+  };
 
   @Column({ allowNull: false, type: DataType.STRING(250) })
   OwnerEmail1: string;

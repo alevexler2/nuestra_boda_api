@@ -24,6 +24,19 @@ export class MediaFileRepository {
     });
   }
 
+  async findAllByEventPaginated(
+    eventId: string,
+    limit: number,
+    offset: number,
+  ): Promise<{ rows: MediaFile[]; count: number }> {
+    return this.mediaFileModel.findAndCountAll({
+      where: { EventID: eventId },
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset,
+    });
+  }
+
   async findOne(id: string): Promise<MediaFile | null> {
     return this.mediaFileModel.findByPk(id);
   }
