@@ -7,10 +7,16 @@ import { MediaFileModule } from './media-file/media-file.module';
 import { EventSettingsModule } from './event-settings/event-settings.module';
 import { MediaFileCommentModule } from './media-file-comment/media-file-comment.module';
 import { MediaFileLikeModule } from './media-file-like/media-file-like.module';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
     SequelizeModule.forRoot(sequelizeConfig),
+    CacheModule.register({
+      isGlobal: true, 
+      ttl: 60000, 
+      max: 100, 
+    }),
     MediaTypeModule,
     MediaFileModule,
     EventSettingsModule,
@@ -22,7 +28,7 @@ export class AppModule implements OnModuleInit {
   async onModuleInit() {
     await this.seedDatabase();
   }
-  
+
   private async seedDatabase() {
     try {
       await seedMediaTypes();
