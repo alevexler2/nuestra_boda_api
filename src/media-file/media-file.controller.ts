@@ -8,6 +8,8 @@ import {
   UseInterceptors,
   Delete,
   Query,
+  Headers,
+  Res,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { MediaFileService } from './media-file.service';
@@ -82,8 +84,19 @@ export class MediaFileController {
   async findAllByEvent(
     @Param('eventId') eventId: string,
     @Query() paginationQuery: PaginationQueryDto,
-  ): Promise<PaginatedResponseDto<MediaFileResponseDto & { data?: string }>> {
+  ): Promise<
+    PaginatedResponseDto<MediaFileResponseDto & { streamUrl?: string }>
+  > {
     return this.mediaFileService.findAllByEvent(eventId, paginationQuery);
+  }
+
+  @Get(':id/stream')
+  async streamVideo(
+    @Param('id') id: string,
+    @Headers('range') range: string,
+    @Res() res: any,
+  ) {
+    return this.mediaFileService.streamVideoFromDrive(id, res);
   }
 
   @Delete(':id')

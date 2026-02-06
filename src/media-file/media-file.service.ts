@@ -5,14 +5,16 @@ import { PaginationQueryDto } from './dto/pagination-query.dto';
 import { PaginatedResponseDto } from './dto/paginated-response.dto';
 import * as fs from 'fs';
 import { join } from 'path';
-import { google } from 'googleapis';
+import { google, drive_v3 } from 'googleapis';
 import * as stream from 'stream';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import { Response } from 'express';
 
 @Injectable()
 export class MediaFileService {
   private oauth2Client;
+  private drive: drive_v3.Drive;
 
   constructor(
     private readonly mediaFileRepo: MediaFileRepository,
@@ -142,42 +144,45 @@ export class MediaFileService {
   async findAllByEvent(
     eventId: string,
     paginationQuery: PaginationQueryDto,
-  ): Promise<PaginatedResponseDto<MediaFileResponseDto & { data?: string }>> {
+  ): Promise<
+    PaginatedResponseDto<
+      MediaFileResponseDto & { data?: string; streamUrl?: string }
+    >
+  > {
     const { page = 1, limit = 10 } = paginationQuery;
     const offset = (page - 1) * limit;
 
     const { rows: medias, count: total } =
       await this.mediaFileRepo.findAllByEventPaginated(eventId, limit, offset);
 
-    const data = await Promise.all(
-      medias.map(async (media) => {
-        const response = this.toResponseDto(media.get());
-        const url = media.get('URL');
+    const data = medias.map((media) => {
+      const response: any = this.toResponseDto(media.get());
+      const url = media.get('URL');
 
-        if (!url) {
-          response['data'] = null;
-          return response;
+      if (!url) {
+        response.data = null;
+        return response;
+      }
+
+      if (url.startsWith('drive://') || !url.includes('/')) {
+        const fileId = url.replace('drive://', '');
+
+        // 🖼 IMAGEN (igual que antes)
+        if (media.get('MediaTypeID') === 1) {
+          response.data = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
         }
 
-        if (url.startsWith('drive://') || !url.includes('/')) {
-          const fileId = url.replace('drive://', '');
-
-          if (media.get('MediaTypeID') === 1) {
-            response['data'] =
-              `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
-          } else {
-            const base64 = await this.downloadFileFromDrive(fileId);
-            response['data'] = base64
-              ? `data:video/mp4;base64,${base64}`
-              : null;
-          }
-        } else {
-          response['data'] = null;
+        // 🎥 VIDEO → STREAM (CAMBIO CLAVE)
+        if (media.get('MediaTypeID') === 2) {
+          response.streamUrl = `https://api.pupaeventos.com/api/media-file/${media.get('ID')}/stream`;
         }
 
         return response;
-      }),
-    );
+      }
+
+      response.data = null;
+      return response;
+    });
 
     const totalPages = Math.ceil(total / limit);
 
@@ -192,6 +197,69 @@ export class MediaFileService {
         hasPreviousPage: page > 1,
       },
     };
+  }
+
+  async streamVideoFromDrive(mediaId: string, res: Response, range?: string) {
+    const media = await this.mediaFileRepo.findOne(mediaId);
+
+    if (!media) {
+      return res.status(404).end();
+    }
+    const fileId = media.dataValues.URL;
+    console.log(fileId);
+    if (!fileId || fileId.includes('/')) {
+      return res.status(400).end();
+    }
+
+    const drive = google.drive({ version: 'v3', auth: this.oauth2Client });
+
+    const meta = await drive.files.get({
+      fileId,
+      fields: 'size, mimeType',
+    });
+
+    const fileSize = Number(meta.data.size);
+    const mimeType = meta.data.mimeType || 'video/mp4';
+
+    if (!range) {
+      res.writeHead(200, {
+        'Content-Length': fileSize,
+        'Content-Type': mimeType,
+        'Accept-Ranges': 'bytes',
+      });
+
+      const driveResponse = await drive.files.get(
+        { fileId, alt: 'media' },
+        { responseType: 'stream' },
+      );
+
+      return driveResponse.data.pipe(res);
+    }
+
+    const parts = range.replace(/bytes=/, '').split('-');
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+    const chunkSize = end - start + 1;
+
+    res.writeHead(206, {
+      'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+      'Accept-Ranges': 'bytes',
+      'Content-Length': chunkSize,
+      'Content-Type': mimeType,
+    });
+
+    const driveResponse = await this.drive.files.get(
+      { fileId, alt: 'media' },
+      {
+        responseType: 'stream',
+        headers: {
+          Range: `bytes=${start}-${end}`,
+        },
+      },
+    );
+
+    driveResponse.data.pipe(res);
   }
 
   async findOne(id: string): Promise<MediaFileResponseDto | null> {
