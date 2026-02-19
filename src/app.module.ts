@@ -1,6 +1,7 @@
 import { Module, OnModuleInit } from '@nestjs/common';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { sequelizeConfig } from './config/sequelize.config';
+import { GoogleAuthModule } from './config/google-auth.module';
 import { MediaTypeModule } from './media-type/media-type.module';
 import { seedMediaTypes } from './seeds/media-type.seed';
 import { MediaFileModule } from './media-file/media-file.module';
@@ -11,6 +12,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
+    GoogleAuthModule,
     SequelizeModule.forRoot(sequelizeConfig),
     CacheModule.register({
       isGlobal: true, 
@@ -39,3 +41,5 @@ export class AppModule implements OnModuleInit {
     }
   }
 }
+
+

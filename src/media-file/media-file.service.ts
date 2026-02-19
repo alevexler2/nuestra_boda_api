@@ -3,6 +3,7 @@ import { MediaFileRepository } from './media-file.repository';
 import { MediaFileResponseDto } from './dto/response-media-file.dto';
 import { PaginationQueryDto } from './dto/pagination-query.dto';
 import { PaginatedResponseDto } from './dto/paginated-response.dto';
+import { GoogleAuthService } from 'src/config/google-auth.service';
 import * as fs from 'fs';
 import { join } from 'path';
 import { google, drive_v3 } from 'googleapis';
@@ -13,22 +14,16 @@ import { Response } from 'express';
 
 @Injectable()
 export class MediaFileService {
-  private oauth2Client;
   private drive: drive_v3.Drive;
 
   constructor(
     private readonly mediaFileRepo: MediaFileRepository,
+    private readonly googleAuthService: GoogleAuthService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {
-    this.oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      'https://api.pupaeventos.com/api/media-file/oauth2callback',
-    );
-
-    this.oauth2Client.setCredentials({
-      refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
-    });
+    // Obtén el cliente OAuth del servicio de Google Auth
+    const oauth2Client = this.googleAuthService.getAuthClient();
+    this.drive = google.drive({ version: 'v3', auth: oauth2Client });
   }
 
   async create(createDto: any): Promise<MediaFileResponseDto> {
@@ -70,36 +65,44 @@ export class MediaFileService {
     file: Express.Multer.File,
     eventId: string,
   ): Promise<{ fileId: string }> {
-    const drive = google.drive({ version: 'v3', auth: this.oauth2Client });
-    await this.oauth2Client.getAccessToken();
+    console.log(`📤 Subiendo archivo: ${file.originalname} (${(file.size / 1024 / 1024).toFixed(2)} MB) - MIME: ${file.mimetype}`);
 
-    const folderId = await this.getOrCreateEventFolder(drive, eventId);
+    const folderId = await this.getOrCreateEventFolder(this.drive, eventId);
     const bufferStream = new stream.PassThrough();
     bufferStream.end(file.buffer);
 
-    const response = await drive.files.create({
-      requestBody: {
-        name: file.originalname,
-        parents: [folderId],
-      },
-      media: {
-        mimeType: file.mimetype,
-        body: bufferStream,
-      },
-      fields: 'id',
-    });
+    try {
+      const response = await this.drive.files.create({
+        requestBody: {
+          name: file.originalname,
+          parents: [folderId],
+          description: `Uploaded: ${new Date().toISOString()}`,
+        },
+        media: {
+          mimeType: file.mimetype,
+          body: bufferStream,
+        },
+        fields: 'id, webViewLink',
+      });
 
-    const fileId = response.data.id!;
+      const fileId = response.data.id!;
+      console.log(`✅ Archivo subido correctamente. ID: ${fileId}`);
 
-    await drive.permissions.create({
-      fileId: fileId,
-      requestBody: {
-        role: 'reader',
-        type: 'anyone',
-      },
-    });
+      // Dar permisos de lectura pública
+      await this.drive.permissions.create({
+        fileId: fileId,
+        requestBody: {
+          role: 'reader',
+          type: 'anyone',
+        },
+      });
 
-    return { fileId };
+      console.log(`🔓 Permisos públicos configurados para: ${fileId}`);
+      return { fileId };
+    } catch (error) {
+      console.error(`❌ Error subiendo archivo a Drive:`, error);
+      throw error;
+    }
   }
 
   private async downloadFileFromDrive(fileId: string): Promise<string | null> {
@@ -112,11 +115,9 @@ export class MediaFileService {
     }
 
     try {
-      const drive = google.drive({ version: 'v3', auth: this.oauth2Client });
-
       console.log(`⬇️ Descargando video ${fileId} de Drive...`);
 
-      const response = await drive.files.get(
+      const response = await this.drive.files.get(
         {
           fileId: fileId,
           alt: 'media',
@@ -174,7 +175,8 @@ export class MediaFileService {
 
         // 🎥 VIDEO → STREAM (CAMBIO CLAVE)
         if (media.get('MediaTypeID') === 2) {
-          response.streamUrl = `https://api.pupaeventos.com/api/media-file/${media.get('ID')}/stream`;
+          const baseUrl = process.env.API_BASE_URL || 'http://localhost:8000';
+          response.streamUrl = `${baseUrl}/api/media-file/${media.get('ID')}/stream`;
         }
 
         return response;
@@ -200,66 +202,106 @@ export class MediaFileService {
   }
 
   async streamVideoFromDrive(mediaId: string, res: Response, range?: string) {
-    const media = await this.mediaFileRepo.findOne(mediaId);
+    try {
+      const media = await this.mediaFileRepo.findOne(mediaId);
 
-    if (!media) {
-      return res.status(404).end();
-    }
-    const fileId = media.dataValues.URL;
-    console.log(fileId);
-    if (!fileId || fileId.includes('/')) {
-      return res.status(400).end();
-    }
+      if (!media) {
+        console.error(`❌ MediaFile no encontrado: ${mediaId}`);
+        return res.status(404).json({ error: 'MediaFile not found' });
+      }
 
-    const drive = google.drive({ version: 'v3', auth: this.oauth2Client });
+      const fileId = media.dataValues.URL;
+      console.log(`📥 Streaming video: ${fileId} (MediaID: ${mediaId})`);
 
-    const meta = await drive.files.get({
-      fileId,
-      fields: 'size, mimeType',
-    });
+      if (!fileId || fileId.includes('/')) {
+        console.error(`❌ URL inválido: ${fileId}`);
+        return res.status(400).json({ error: 'Invalid file ID' });
+      }
 
-    const fileSize = Number(meta.data.size);
-    const mimeType = meta.data.mimeType || 'video/mp4';
-
-    if (!range) {
-      res.writeHead(200, {
-        'Content-Length': fileSize,
-        'Content-Type': mimeType,
-        'Accept-Ranges': 'bytes',
+      // Obtener metadatos del archivo
+      const meta = await this.drive.files.get({
+        fileId,
+        fields: 'size, mimeType, name, trashed',
       });
 
-      const driveResponse = await drive.files.get(
-        { fileId, alt: 'media' },
-        { responseType: 'stream' },
+      if (meta.data.trashed) {
+        console.error(`❌ Archivo fue eliminado: ${fileId}`);
+        return res.status(404).json({ error: 'File has been deleted' });
+      }
+
+      const fileSize = Number(meta.data.size);
+      const mimeType = meta.data.mimeType || 'video/mp4';
+      const fileName = meta.data.name || 'video';
+
+      console.log(
+        `📺 Archivo: ${fileName}, Tamaño: ${(fileSize / 1024 / 1024).toFixed(2)} MB, MIME: ${mimeType}`,
       );
 
-      return driveResponse.data.pipe(res);
+      if (!range) {
+        // Petición sin rango
+        console.log(`📤 Enviando video completo: ${fileName}`);
+        res.writeHead(200, {
+          'Content-Length': fileSize,
+          'Content-Type': mimeType,
+          'Accept-Ranges': 'bytes',
+          'Access-Control-Allow-Origin': '*',
+          'Cross-Origin-Resource-Policy': 'cross-origin',
+          'Cache-Control': 'public, max-age=3600',
+        });
+
+        try {
+          const driveResponse = await this.drive.files.get(
+            { fileId, alt: 'media' },
+            { responseType: 'stream' },
+          );
+
+          return driveResponse.data.pipe(res);
+        } catch (error) {
+          console.error(`❌ Error en streaming completo:`, error);
+          return res.status(500).json({ error: 'Error streaming file' });
+        }
+      }
+
+      // Petición con rango (para skip)
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunkSize = end - start + 1;
+
+      console.log(
+        `📍 Rango solicitado: bytes=${start}-${end}/${fileSize} (Chunk: ${(chunkSize / 1024 / 1024).toFixed(2)} MB)`,
+      );
+
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunkSize,
+        'Content-Type': mimeType,
+        'Access-Control-Allow-Origin': '*',
+        'Cross-Origin-Resource-Policy': 'cross-origin',
+        'Cache-Control': 'public, max-age=3600',
+      });
+
+      try {
+        const driveResponse = await this.drive.files.get(
+          { fileId, alt: 'media' },
+          {
+            responseType: 'stream',
+            headers: {
+              Range: `bytes=${start}-${end}`,
+            },
+          },
+        );
+
+        return driveResponse.data.pipe(res);
+      } catch (error) {
+        console.error(`❌ Error en streaming con rango:`, error);
+        return res.status(500).json({ error: 'Error streaming file range' });
+      }
+    } catch (error) {
+      console.error(`❌ Error general en streamVideoFromDrive:`, error);
+      return res.status(500).json({ error: 'Internal server error' });
     }
-
-    const parts = range.replace(/bytes=/, '').split('-');
-    const start = parseInt(parts[0], 10);
-    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-
-    const chunkSize = end - start + 1;
-
-    res.writeHead(206, {
-      'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-      'Accept-Ranges': 'bytes',
-      'Content-Length': chunkSize,
-      'Content-Type': mimeType,
-    });
-
-    const driveResponse = await this.drive.files.get(
-      { fileId, alt: 'media' },
-      {
-        responseType: 'stream',
-        headers: {
-          Range: `bytes=${start}-${end}`,
-        },
-      },
-    );
-
-    driveResponse.data.pipe(res);
   }
 
   async findOne(id: string): Promise<MediaFileResponseDto | null> {
@@ -269,9 +311,7 @@ export class MediaFileService {
 
   private async deleteFileFromDrive(fileId: string): Promise<boolean> {
     try {
-      const drive = google.drive({ version: 'v3', auth: this.oauth2Client });
-
-      await drive.files.delete({
+      await this.drive.files.delete({
         fileId: fileId,
       });
 
